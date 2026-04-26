@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kolkata Car Advisor</title>
+<title>Kolkata Car Advisor AI</title>
 
 <style>
 body {font-family: Arial; background:#0f172a; color:#e5e7eb; margin:0;}
 .container {max-width:700px; margin:auto; padding:20px;}
-.chat {display:flex; flex-direction:column; gap:10px;}
+.chat {display:flex; flex-direction:column; gap:10px; max-height:70vh; overflow:auto;}
 .msg {padding:12px; border-radius:10px;}
 .bot {background:#1e293b;}
 .user {background:#334155; text-align:right;}
@@ -16,24 +16,44 @@ input {width:100%; padding:10px; margin-top:10px;}
 button {padding:10px; margin-top:10px; width:100%;}
 .result {background:#020617; padding:15px; border-radius:10px; margin-top:10px;}
 .good{color:#22c55e;} .warn{color:#facc15;} .bad{color:#ef4444;}
+.small{font-size:12px;color:#94a3b8;}
 </style>
 
 </head>
 <body>
 
 <div class="container">
-<h2>🚗 Kolkata Car Advisor (Conversational)</h2>
+<h2>🚗 Kolkata Car Advisor (AI + Deterministic)</h2>
+
+<div class="small">AI works best on desktop (first load ~1 min)</div>
+
+<button onclick="initAI()">Load AI</button>
+<div id="aiStatus">AI: Not loaded</div>
 
 <div id="chat" class="chat"></div>
 
-<input id="input" placeholder="Type answer..." />
+<input id="input" placeholder="Enter number..." />
 <button onclick="next()">Send</button>
 
 </div>
 
-<script>
+<script type="module">
 
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+let engine = null;
+
+async function initAI(){
+document.getElementById("aiStatus").innerText="Loading AI...";
+engine = await webllm.CreateMLCEngine({
+model: "Llama-3-8B-Instruct-q4f32_1"
+});
+document.getElementById("aiStatus").innerText="AI Ready ✅";
+}
+
+// STATE
 let step = 0;
+let completed = false;
 
 let state = {
 income:0,
@@ -44,32 +64,47 @@ savings:0
 
 const questions = [
 "What's your monthly income (₹)?",
-"Monthly household expenses (₹)?",
-"Total EMIs including home (₹)?",
-"Current savings (₹)?"
+"Monthly expenses (₹)?",
+"Total EMIs (₹)?",
+"Savings (₹)?"
 ];
+
+// UI
+function scrollDown(){
+let chat = document.getElementById("chat");
+chat.scrollTop = chat.scrollHeight;
+}
 
 function addBot(text){
 document.getElementById("chat").innerHTML += `<div class="msg bot">${text}</div>`;
+scrollDown();
 }
 
 function addUser(text){
 document.getElementById("chat").innerHTML += `<div class="msg user">${text}</div>`;
+scrollDown();
 }
 
-function next(){
+// FLOW
+window.next = async function(){
 
-let val = document.getElementById("input").value;
-if(!val) return;
+if(completed) return;
 
-addUser(val);
+let raw = document.getElementById("input").value.trim();
+if(!raw) return;
 
-val = +val;
+let val = Number(raw);
+if(isNaN(val) || val<0){
+addBot("Enter valid number");
+return;
+}
 
-if(step===0) state.income = val;
-if(step===1) state.expenses = val;
-if(step===2) state.emi = val;
-if(step===3) state.savings = val;
+addUser("₹"+val.toLocaleString("en-IN"));
+
+if(step===0) state.income=val;
+if(step===1) state.expenses=val;
+if(step===2) state.emi=val;
+if(step===3) state.savings=val;
 
 document.getElementById("input").value="";
 
@@ -79,75 +114,88 @@ if(step < questions.length){
 addBot(questions[step]);
 }
 else{
-analyze();
+await analyze();
+completed = true;
 }
 
-}
+};
 
-function analyze(){
+// CORE LOGIC
+async function analyze(){
 
 let income = state.income;
 let expenses = state.expenses;
 let emi = state.emi;
-let savings = state.savings;
+
+if(income===0){
+addBot("Income cannot be zero");
+return;
+}
 
 let carCost = 45000;
-
 let total = expenses + emi + carCost;
 let surplus = income - total;
-
 let emiRatio = (emi + carCost) / income;
 
 let verdict="", cls="", advice="";
 
-// deterministic logic
-if(surplus > 25000 && emiRatio < 0.45){
+if(surplus>25000 && emiRatio<0.45){
 verdict="GO EASY"; cls="good";
-advice="You can afford this comfortably without hurting investments.";
+advice="Comfortable purchase.";
 }
-else if(surplus > 15000 && emiRatio < 0.55){
+else if(surplus>15000){
 verdict="GO STRETCH"; cls="warn";
-advice="Manageable but tight. Avoid extra spending.";
+advice="Manage carefully.";
 }
-else if(surplus >= 0){
+else if(surplus>=0){
 verdict="GO COMPROMISE"; cls="warn";
-advice="Financially tight. Consider cheaper car.";
+advice="Tight finances.";
 }
 else{
 verdict="NO GO"; cls="bad";
-advice="This will create financial stress.";
+advice="Financially unsafe.";
 }
 
-// recommendation
-let reco="";
-if(verdict==="NO GO"){
-reco="👉 Better range: ₹8–12L";
-}
-else if(verdict==="GO COMPROMISE"){
-reco="👉 Better range: ₹10–15L";
-}
-else if(verdict==="GO STRETCH"){
-reco="👉 Safer alternative: ₹15–18L";
+// AI insight
+let aiText = "";
+
+if(engine){
+let prompt = `
+User financials:
+Income: ${income}
+Expenses: ${expenses}
+EMI: ${emi}
+Surplus: ${surplus}
+
+Explain if buying ₹20L SUV is wise.
+`;
+
+let res = await engine.chat.completions.create({
+messages:[{role:"user",content:prompt}]
+});
+
+aiText = res.choices[0].message.content;
 }
 else{
-reco="👉 ₹20L SUV is fine";
+aiText = "AI not loaded. Using rule-based decision.";
 }
 
-// output
+// OUTPUT
 addBot(`
 <div class="result">
 <h3 class="${cls}">${verdict}</h3>
-<p>Monthly surplus: ₹${surplus}</p>
-<p>EMI ratio: ${(emiRatio*100).toFixed(1)}%</p>
+<p>Surplus: ₹${surplus.toLocaleString("en-IN")}</p>
+<p>EMI Ratio: ${(emiRatio*100).toFixed(1)}%</p>
 <p>${advice}</p>
-<p>${reco}</p>
+<hr>
+<p>${aiText}</p>
 </div>
 `);
 
 }
 
-// start
-addBot("Hi 👋 I’ll help you decide if a ₹20L SUV makes sense.\n\nLet’s start.");
+// START
+addBot("Hi 👋 I'm your Kolkata Car Advisor.");
 addBot(questions[0]);
 
 </script>
