@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>PreciSen Car Advisor</title>
+
+<style>
+body { font-family: Arial; background:#0f172a; color:#fff; text-align:center;}
+.box { background:#1e293b; padding:20px; width:90%; max-width:400px; margin:auto; border-radius:10px;}
+input, select { width:100%; margin:5px 0; padding:8px;}
+button { width:100%; padding:10px; margin-top:10px;}
+.green{background:#064e3b;} .yellow{background:#78350f;} .orange{background:#7c2d12;} .red{background:#7f1d1d;}
+</style>
+
+</head>
+<body>
+
+<h2>🚗 PreciSen Car Advisor</h2>
+
+<div class="box">
+<input id="income" placeholder="Income">
+<input id="expenses" placeholder="Expenses">
+<input id="emi" placeholder="Total EMIs">
+
+<select id="stage">
+<option value="rent">Rent</option>
+<option value="early">New Loan</option>
+<option value="mid">Mid Loan</option>
+</select>
+
+<button onclick="run()">Analyze</button>
+</div>
+
+<div id="result"></div>
+
+<script>
+
+function run(){
+
+let income=+document.getElementById("income").value;
+let expenses=+document.getElementById("expenses").value;
+let emi=+document.getElementById("emi").value;
+
+let car=45000;
+
+let total=expenses+emi+car;
+let surplus=income-total;
+
+let verdict="NO GO", color="red";
+
+if(surplus>25000) {verdict="GO EASY"; color="green";}
+else if(surplus>10000){verdict="GO STRETCH"; color="yellow";}
+else if(surplus>=0){verdict="GO COMPROMISE"; color="orange";}
+
+document.getElementById("result").innerHTML=
+`<div class="${color}">
+<h3>${verdict}</h3>
+<p>Surplus: ₹${surplus}</p>
+</div>`;
+
+}
+
+</script>
+
+</body>
+</html>
