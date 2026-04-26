@@ -8,7 +8,7 @@
 <style>
 body {font-family: Arial; background:#0f172a; color:#e5e7eb; margin:0;}
 .container {max-width:700px; margin:auto; padding:20px;}
-.chat {display:flex; flex-direction:column; gap:10px; max-height:70vh; overflow:auto;}
+.chat {display:flex; flex-direction:column; gap:10px;}
 .msg {padding:12px; border-radius:10px;}
 .bot {background:#1e293b;}
 .user {background:#334155; text-align:right;}
@@ -16,27 +16,24 @@ input {width:100%; padding:10px; margin-top:10px;}
 button {padding:10px; margin-top:10px; width:100%;}
 .result {background:#020617; padding:15px; border-radius:10px; margin-top:10px;}
 .good{color:#22c55e;} .warn{color:#facc15;} .bad{color:#ef4444;}
-.error{color:#ef4444; font-size:12px;}
 </style>
 
 </head>
 <body>
 
 <div class="container">
-<h2>🚗 Kolkata Car Advisor</h2>
+<h2>🚗 Kolkata Car Advisor (Conversational)</h2>
 
 <div id="chat" class="chat"></div>
 
-<input id="input" placeholder="Enter number..." />
+<input id="input" placeholder="Type answer..." />
 <button onclick="next()">Send</button>
-<div id="error" class="error"></div>
 
 </div>
 
 <script>
 
 let step = 0;
-let completed = false;
 
 let state = {
 income:0,
@@ -52,43 +49,22 @@ const questions = [
 "Current savings (₹)?"
 ];
 
-function scrollDown(){
-let chat = document.getElementById("chat");
-chat.scrollTop = chat.scrollHeight;
-}
-
 function addBot(text){
 document.getElementById("chat").innerHTML += `<div class="msg bot">${text}</div>`;
-scrollDown();
 }
 
 function addUser(text){
 document.getElementById("chat").innerHTML += `<div class="msg user">${text}</div>`;
-scrollDown();
 }
 
 function next(){
 
-if(completed) return;
+let val = document.getElementById("input").value;
+if(!val) return;
 
-let raw = document.getElementById("input").value.trim();
-let errorDiv = document.getElementById("error");
+addUser(val);
 
-if(raw === ""){
-errorDiv.innerText = "Please enter a value";
-return;
-}
-
-let val = Number(raw);
-
-if(isNaN(val) || val < 0){
-errorDiv.innerText = "Enter a valid positive number";
-return;
-}
-
-errorDiv.innerText = "";
-
-addUser("₹" + val.toLocaleString("en-IN"));
+val = +val;
 
 if(step===0) state.income = val;
 if(step===1) state.expenses = val;
@@ -104,7 +80,6 @@ addBot(questions[step]);
 }
 else{
 analyze();
-completed = true;
 }
 
 }
@@ -114,11 +89,7 @@ function analyze(){
 let income = state.income;
 let expenses = state.expenses;
 let emi = state.emi;
-
-if(income === 0){
-addBot("<div class='bad'>Income cannot be zero. Restart.</div>");
-return;
-}
+let savings = state.savings;
 
 let carCost = 45000;
 
@@ -129,6 +100,7 @@ let emiRatio = (emi + carCost) / income;
 
 let verdict="", cls="", advice="";
 
+// deterministic logic
 if(surplus > 25000 && emiRatio < 0.45){
 verdict="GO EASY"; cls="good";
 advice="You can afford this comfortably without hurting investments.";
@@ -161,11 +133,12 @@ else{
 reco="👉 ₹20L SUV is fine";
 }
 
+// output
 addBot(`
 <div class="result">
 <h3 class="${cls}">${verdict}</h3>
-<p><b>Monthly surplus:</b> ₹${surplus.toLocaleString("en-IN")}</p>
-<p><b>EMI ratio:</b> ${(emiRatio*100).toFixed(1)}%</p>
+<p>Monthly surplus: ₹${surplus}</p>
+<p>EMI ratio: ${(emiRatio*100).toFixed(1)}%</p>
 <p>${advice}</p>
 <p>${reco}</p>
 </div>
@@ -174,7 +147,7 @@ addBot(`
 }
 
 // start
-addBot("Hi 👋 I’ll help you decide if a ₹20L SUV makes sense.");
+addBot("Hi 👋 I’ll help you decide if a ₹20L SUV makes sense.\n\nLet’s start.");
 addBot(questions[0]);
 
 </script>
