@@ -1,64 +1,181 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PreciSen Car Advisor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kolkata Car Advisor</title>
 
 <style>
-body { font-family: Arial; background:#0f172a; color:#fff; text-align:center;}
-.box { background:#1e293b; padding:20px; width:90%; max-width:400px; margin:auto; border-radius:10px;}
-input, select { width:100%; margin:5px 0; padding:8px;}
-button { width:100%; padding:10px; margin-top:10px;}
-.green{background:#064e3b;} .yellow{background:#78350f;} .orange{background:#7c2d12;} .red{background:#7f1d1d;}
+body {font-family: Arial; background:#0f172a; color:#e5e7eb; margin:0;}
+.container {max-width:700px; margin:auto; padding:20px;}
+.chat {display:flex; flex-direction:column; gap:10px; max-height:70vh; overflow:auto;}
+.msg {padding:12px; border-radius:10px;}
+.bot {background:#1e293b;}
+.user {background:#334155; text-align:right;}
+input {width:100%; padding:10px; margin-top:10px;}
+button {padding:10px; margin-top:10px; width:100%;}
+.result {background:#020617; padding:15px; border-radius:10px; margin-top:10px;}
+.good{color:#22c55e;} .warn{color:#facc15;} .bad{color:#ef4444;}
+.error{color:#ef4444; font-size:12px;}
 </style>
 
 </head>
 <body>
 
-<h2>🚗 PreciSen Car Advisor</h2>
+<div class="container">
+<h2>🚗 Kolkata Car Advisor</h2>
 
-<div class="box">
-<input id="income" placeholder="Income">
-<input id="expenses" placeholder="Expenses">
-<input id="emi" placeholder="Total EMIs">
+<div id="chat" class="chat"></div>
 
-<select id="stage">
-<option value="rent">Rent</option>
-<option value="early">New Loan</option>
-<option value="mid">Mid Loan</option>
-</select>
+<input id="input" placeholder="Enter number..." />
+<button onclick="next()">Send</button>
+<div id="error" class="error"></div>
 
-<button onclick="run()">Analyze</button>
 </div>
-
-<div id="result"></div>
 
 <script>
 
-function run(){
+let step = 0;
+let completed = false;
 
-let income=+document.getElementById("income").value;
-let expenses=+document.getElementById("expenses").value;
-let emi=+document.getElementById("emi").value;
+let state = {
+income:0,
+expenses:0,
+emi:0,
+savings:0
+};
 
-let car=45000;
+const questions = [
+"What's your monthly income (₹)?",
+"Monthly household expenses (₹)?",
+"Total EMIs including home (₹)?",
+"Current savings (₹)?"
+];
 
-let total=expenses+emi+car;
-let surplus=income-total;
+function scrollDown(){
+let chat = document.getElementById("chat");
+chat.scrollTop = chat.scrollHeight;
+}
 
-let verdict="NO GO", color="red";
+function addBot(text){
+document.getElementById("chat").innerHTML += `<div class="msg bot">${text}</div>`;
+scrollDown();
+}
 
-if(surplus>25000) {verdict="GO EASY"; color="green";}
-else if(surplus>10000){verdict="GO STRETCH"; color="yellow";}
-else if(surplus>=0){verdict="GO COMPROMISE"; color="orange";}
+function addUser(text){
+document.getElementById("chat").innerHTML += `<div class="msg user">${text}</div>`;
+scrollDown();
+}
 
-document.getElementById("result").innerHTML=
-`<div class="${color}">
-<h3>${verdict}</h3>
-<p>Surplus: ₹${surplus}</p>
-</div>`;
+function next(){
+
+if(completed) return;
+
+let raw = document.getElementById("input").value.trim();
+let errorDiv = document.getElementById("error");
+
+if(raw === ""){
+errorDiv.innerText = "Please enter a value";
+return;
+}
+
+let val = Number(raw);
+
+if(isNaN(val) || val < 0){
+errorDiv.innerText = "Enter a valid positive number";
+return;
+}
+
+errorDiv.innerText = "";
+
+addUser("₹" + val.toLocaleString("en-IN"));
+
+if(step===0) state.income = val;
+if(step===1) state.expenses = val;
+if(step===2) state.emi = val;
+if(step===3) state.savings = val;
+
+document.getElementById("input").value="";
+
+step++;
+
+if(step < questions.length){
+addBot(questions[step]);
+}
+else{
+analyze();
+completed = true;
+}
 
 }
+
+function analyze(){
+
+let income = state.income;
+let expenses = state.expenses;
+let emi = state.emi;
+
+if(income === 0){
+addBot("<div class='bad'>Income cannot be zero. Restart.</div>");
+return;
+}
+
+let carCost = 45000;
+
+let total = expenses + emi + carCost;
+let surplus = income - total;
+
+let emiRatio = (emi + carCost) / income;
+
+let verdict="", cls="", advice="";
+
+if(surplus > 25000 && emiRatio < 0.45){
+verdict="GO EASY"; cls="good";
+advice="You can afford this comfortably without hurting investments.";
+}
+else if(surplus > 15000 && emiRatio < 0.55){
+verdict="GO STRETCH"; cls="warn";
+advice="Manageable but tight. Avoid extra spending.";
+}
+else if(surplus >= 0){
+verdict="GO COMPROMISE"; cls="warn";
+advice="Financially tight. Consider cheaper car.";
+}
+else{
+verdict="NO GO"; cls="bad";
+advice="This will create financial stress.";
+}
+
+// recommendation
+let reco="";
+if(verdict==="NO GO"){
+reco="👉 Better range: ₹8–12L";
+}
+else if(verdict==="GO COMPROMISE"){
+reco="👉 Better range: ₹10–15L";
+}
+else if(verdict==="GO STRETCH"){
+reco="👉 Safer alternative: ₹15–18L";
+}
+else{
+reco="👉 ₹20L SUV is fine";
+}
+
+addBot(`
+<div class="result">
+<h3 class="${cls}">${verdict}</h3>
+<p><b>Monthly surplus:</b> ₹${surplus.toLocaleString("en-IN")}</p>
+<p><b>EMI ratio:</b> ${(emiRatio*100).toFixed(1)}%</p>
+<p>${advice}</p>
+<p>${reco}</p>
+</div>
+`);
+
+}
+
+// start
+addBot("Hi 👋 I’ll help you decide if a ₹20L SUV makes sense.");
+addBot(questions[0]);
 
 </script>
 
